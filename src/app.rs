@@ -1,3 +1,4 @@
+use base64::{Engine as _, engine::general_purpose};
 use chacha20poly1305::aead::generic_array::typenum::Unsigned;
 use chacha20poly1305::{
     aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
@@ -6,6 +7,7 @@ use chacha20poly1305::{
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use uuid::Uuid;
 
 // Encrypt/Decrypt functions
 fn generate_key() -> Vec<u8> {
@@ -60,10 +62,13 @@ fn HomePage() -> impl IntoView {
     //let (token, set_token) = create_signal("");
     let (token, set_token) = create_signal("".to_string());
     let (status, set_status) = create_signal(0);
+    let (url, set_url) = create_signal("".to_string());
     let on_click = move |_| {
         //set_status.update(|status| *status = 1);
         spawn_local(async move {
-            save_secret(token.get().to_string()).await.unwrap();
+            //save_secret(token.get().to_string()).await.unwrap();
+            let secret_url = save_secret(token.get().to_string()).await.unwrap();
+            set_url.update(|url| *url = format!("https://tokenshare.leptos.dev/{}", secret_url));
         });
         set_status.update(|status| *status = 1);
     };
@@ -94,12 +99,12 @@ fn HomePage() -> impl IntoView {
                     }
                 } else {
                     view! {
-                        <button class="div-11" on:click=on_click>"Generate again"</button>
+                        <button class="div-11" on:click=on_click>"Generate new"</button>
                     }
                 }}
-                <div>
-
-                </div>
+                <a href=url class="div-url">
+                {move || url.get()}
+                </a>
               </div>
             </div>
             <div class="column-2">
@@ -114,7 +119,6 @@ fn HomePage() -> impl IntoView {
         <div class="div-12">
           <div class="div-13">Help</div>
           <div class="div-14">Privacy</div>
-          <div class="div-15">Terms</div>
         </div>
       </div>
     </div>
@@ -141,11 +145,13 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     //println!("Saving value {token}");
     let key = generate_key();
     let ciphertext = encrypt(&token, &key);
-    println!("Encrypted value: {:?}", ciphertext);
-    println!("Key: {:?}", key);
+    let id = Uuid::new_v4().to_string();
+    let keyencoded: String = general_purpose::URL_SAFE_NO_PAD.encode(&key);
+    let keyandid = format!("{}:{}", id, keyencoded);
     let store = spin_sdk::key_value::Store::open_default()?;
     store
-        .set_json("token", &token)
+        .set_json(id, &ciphertext)
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
-    Ok("".to_string())
+
+    Ok(keyandid)
 }

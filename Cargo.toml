@@ -20,8 +20,17 @@ leptos_router = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0d
 leptos-spin = { git = "https://github.com/fermyon/leptos-spin", branch = "main", optional = true }
 serde = "1.0.192"
 chacha20poly1305 = "0.10.1"
+base64 = "0.21.5"
 spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+
+[dependencies.uuid]
+version = "1.6.1"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
 
 [workspace]
 
