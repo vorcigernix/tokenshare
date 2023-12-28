@@ -1,7 +1,33 @@
-use http::status;
+use chacha20poly1305::aead::generic_array::typenum::Unsigned;
+use chacha20poly1305::{
+    aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
+    ChaCha20Poly1305, Nonce,
+};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+
+// Encrypt/Decrypt functions
+fn generate_key() -> Vec<u8> {
+    ChaCha20Poly1305::generate_key(&mut OsRng).to_vec()
+}
+
+fn encrypt(cleartext: &str, key: &[u8]) -> Vec<u8> {
+    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let mut obsf = cipher.encrypt(&nonce, cleartext.as_bytes()).unwrap();
+    obsf.splice(..0, nonce.iter().copied());
+    obsf
+}
+
+fn decrypt(obsf: &[u8], key: &[u8]) -> String {
+    type NonceSize = <ChaCha20Poly1305 as AeadCore>::NonceSize;
+    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
+    let (nonce, ciphertext) = obsf.split_at(NonceSize::to_usize());
+    let nonce = GenericArray::from_slice(nonce);
+    let plaintext = cipher.decrypt(nonce, ciphertext).unwrap();
+    String::from_utf8(plaintext).unwrap()
+}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -35,10 +61,11 @@ fn HomePage() -> impl IntoView {
     let (token, set_token) = create_signal("".to_string());
     let (status, set_status) = create_signal(0);
     let on_click = move |_| {
-        set_status.update(|status| *status = 1);
+        //set_status.update(|status| *status = 1);
         spawn_local(async move {
             save_secret(token.get().to_string()).await.unwrap();
         });
+        set_status.update(|status| *status = 1);
     };
 
     view! {
@@ -70,7 +97,7 @@ fn HomePage() -> impl IntoView {
                         <button class="div-11" on:click=on_click>"Generate again"</button>
                     }
                 }}
-                <div class="div-10">
+                <div>
 
                 </div>
               </div>
@@ -98,16 +125,8 @@ fn HomePage() -> impl IntoView {
 /// 404 - Not Found
 #[component]
 fn NotFound() -> impl IntoView {
-    // set an HTTP status code 404
-    // this is feature gated because it can only be done during
-    // initial server-side rendering
-    // if you navigate to the 404 page subsequently, the status
-    // code will not be set because there is not a new HTTP request
-    // to the server
     #[cfg(feature = "ssr")]
     {
-        // this can be done inline because it's synchronous
-        // if it were async, we'd use a server function
         let resp = expect_context::<leptos_spin::ResponseOptions>();
         resp.set_status(404);
     }
@@ -118,11 +137,15 @@ fn NotFound() -> impl IntoView {
 }
 
 #[server(SaveSecret, "/api")]
-pub async fn save_secret(token: String) -> Result<(), ServerFnError> {
-    println!("Saving value {token}");
+pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
+    //println!("Saving value {token}");
+    let key = generate_key();
+    let ciphertext = encrypt(&token, &key);
+    println!("Encrypted value: {:?}", ciphertext);
+    println!("Key: {:?}", key);
     let store = spin_sdk::key_value::Store::open_default()?;
     store
-        .set_json("tokenshare_count", &token)
+        .set_json("token", &token)
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
-    Ok(())
+    Ok("".to_string())
 }
