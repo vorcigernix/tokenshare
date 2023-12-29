@@ -1,4 +1,4 @@
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use chacha20poly1305::aead::generic_array::typenum::Unsigned;
 use chacha20poly1305::{
     aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
@@ -27,7 +27,13 @@ fn decrypt(obsf: &[u8], key: &[u8]) -> String {
     let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
     let (nonce, ciphertext) = obsf.split_at(NonceSize::to_usize());
     let nonce = GenericArray::from_slice(nonce);
-    let plaintext = cipher.decrypt(nonce, ciphertext).unwrap();
+    let plaintext = match cipher.decrypt(nonce, ciphertext) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("Decryption failed: {:?}", e);
+            return e.to_string();
+        },
+    };
     String::from_utf8(plaintext).unwrap()
 }
 
@@ -48,6 +54,7 @@ pub fn App() -> impl IntoView {
             <main>
                 <Routes>
                     <Route path="" view=HomePage/>
+                    <Route path="/get/:id" view=RevealToken/>
                     <Route path="/*any" view=NotFound/>
                 </Routes>
             </main>
@@ -58,17 +65,16 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    // Creates a reactive value to update the button
-    //let (token, set_token) = create_signal("");
     let (token, set_token) = create_signal("".to_string());
     let (status, set_status) = create_signal(0);
     let (url, set_url) = create_signal("".to_string());
     let on_click = move |_| {
-        //set_status.update(|status| *status = 1);
         spawn_local(async move {
-            //save_secret(token.get().to_string()).await.unwrap();
             let secret_url = save_secret(token.get().to_string()).await.unwrap();
-            set_url.update(|url| *url = format!("https://tokenshare.leptos.dev/{}", secret_url));
+            //todo: use host from request
+            set_url.update(|url| {
+                *url = format!("https://tokenshare-ngosnw7s.fermyon.app/get/{}", secret_url)
+            });
         });
         set_status.update(|status| *status = 1);
     };
@@ -126,6 +132,24 @@ fn HomePage() -> impl IntoView {
       }
 }
 
+// Reveal token from URL
+#[component]
+fn RevealToken() -> impl IntoView {
+    let params = use_params_map();
+    let id = move || params.with(|params| params.get("id").cloned().unwrap_or_default());
+    let (secret, set_secret) = create_signal("".to_string());
+    spawn_local(async move {
+        let secret_text = get_secret(id()).await.unwrap();
+        set_secret.update(|text| {
+            *text = format!("{}", secret_text)
+        });
+    });
+    #[cfg(feature = "ssr")]
+    view! {
+        <h1>"Data"{id}</h1>
+        <h2>"Encrypted"{secret}</h2>
+    }
+}
 /// 404 - Not Found
 #[component]
 fn NotFound() -> impl IntoView {
@@ -147,11 +171,28 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     let ciphertext = encrypt(&token, &key);
     let id = Uuid::new_v4().to_string();
     let keyencoded: String = general_purpose::URL_SAFE_NO_PAD.encode(&key);
-    let keyandid = format!("{}:{}", id, keyencoded);
+    let keyandid = format!("{}::{}", id, keyencoded);
     let store = spin_sdk::key_value::Store::open_default()?;
     store
         .set_json(id, &ciphertext)
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
 
     Ok(keyandid)
+}
+
+#[server(RevealToken, "/get")]
+pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
+    let v: Vec<&str> = id.split("::").collect();
+    let store = spin_sdk::key_value::Store::open_default()?;
+    let ciphertext = store.get(v[0])?;
+    let ciphertext = match ciphertext {
+        Some(ciphertext) => ciphertext,
+        None => return Ok("not found".into()),
+    };
+    let key = general_purpose::URL_SAFE_NO_PAD.decode(v[1]).unwrap();
+    println!("{:?}", key);
+    println!("{:?}", ciphertext);
+    let value = decrypt(&ciphertext, &key);
+    //println!("{:#?}", response);
+    Ok(format!("{:?}", value))
 }
