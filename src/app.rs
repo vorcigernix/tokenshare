@@ -22,20 +22,21 @@ fn encrypt(cleartext: &str, key: &[u8]) -> Vec<u8> {
     obsf
 }
 
-fn decrypt(obsf: &[u8], key: &[u8]) -> String {
-    type NonceSize = <ChaCha20Poly1305 as AeadCore>::NonceSize;
+
+fn decrypt(ciphertext: &[u8], key: &[u8]) -> String {
     let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
-    let (nonce, ciphertext) = obsf.split_at(NonceSize::to_usize());
-    let nonce = GenericArray::from_slice(nonce);
-    let plaintext = match cipher.decrypt(nonce, ciphertext) {
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    //let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref());
+    let plaintext = match cipher.decrypt(&nonce, ciphertext.as_ref()) {
         Ok(v) => v,
         Err(e) => {
             println!("Decryption failed: {:?}", e);
             return e.to_string();
-        },
+        }
     };
     String::from_utf8(plaintext).unwrap()
 }
+
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -140,9 +141,7 @@ fn RevealToken() -> impl IntoView {
     let (secret, set_secret) = create_signal("".to_string());
     spawn_local(async move {
         let secret_text = get_secret(id()).await.unwrap();
-        set_secret.update(|text| {
-            *text = format!("{}", secret_text)
-        });
+        set_secret.update(|text| *text = format!("{}", secret_text));
     });
     #[cfg(feature = "ssr")]
     view! {
