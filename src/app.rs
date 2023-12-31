@@ -7,6 +7,7 @@ use chacha20poly1305::{
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use url::form_urlencoded::{byte_serialize, parse};
 use uuid::Uuid;
 
 // Encrypt/Decrypt functions
@@ -22,7 +23,6 @@ fn encrypt(cleartext: &str, key: &[u8]) -> Vec<u8> {
     obsf
 }
 
-
 fn decrypt(ciphertext: &[u8], key: &[u8]) -> String {
     let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
     let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
@@ -36,7 +36,6 @@ fn decrypt(ciphertext: &[u8], key: &[u8]) -> String {
     };
     String::from_utf8(plaintext).unwrap()
 }
-
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -167,10 +166,10 @@ fn NotFound() -> impl IntoView {
 pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     //println!("Saving value {token}");
     let key = generate_key();
-    let ciphertext = encrypt(&token, &key);
     let id = Uuid::new_v4().to_string();
-    let keyencoded: String = general_purpose::URL_SAFE_NO_PAD.encode(&key);
+    let keyencoded: String = general_purpose::URL_SAFE.encode(&key);
     let keyandid = format!("{}::{}", id, keyencoded);
+    let ciphertext = encrypt(&token, &key);
     let store = spin_sdk::key_value::Store::open_default()?;
     store
         .set_json(id, &ciphertext)
@@ -188,10 +187,9 @@ pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
         Some(ciphertext) => ciphertext,
         None => return Ok("not found".into()),
     };
-    let key = general_purpose::URL_SAFE_NO_PAD.decode(v[1]).unwrap();
-    println!("{:?}", key);
-    println!("{:?}", ciphertext);
+    let key = general_purpose::URL_SAFE.decode(v[1]).unwrap();
+
     let value = decrypt(&ciphertext, &key);
-    //println!("{:#?}", response);
+    println!("{:#?}", value);
     Ok(format!("{:?}", value))
 }
