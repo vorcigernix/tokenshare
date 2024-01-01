@@ -1,41 +1,13 @@
 use base64::{engine::general_purpose, Engine as _};
-use chacha20poly1305::aead::generic_array::typenum::Unsigned;
 use chacha20poly1305::{
-    aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
-    ChaCha20Poly1305, Nonce,
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    ChaCha20Poly1305, Nonce
 };
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
-use url::form_urlencoded::{byte_serialize, parse};
 use uuid::Uuid;
 
-// Encrypt/Decrypt functions
-fn generate_key() -> Vec<u8> {
-    ChaCha20Poly1305::generate_key(&mut OsRng).to_vec()
-}
-
-fn encrypt(cleartext: &str, key: &[u8]) -> Vec<u8> {
-    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let mut obsf = cipher.encrypt(&nonce, cleartext.as_bytes()).unwrap();
-    obsf.splice(..0, nonce.iter().copied());
-    obsf
-}
-
-fn decrypt(ciphertext: &[u8], key: &[u8]) -> String {
-    let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key));
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    //let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref());
-    let plaintext = match cipher.decrypt(&nonce, ciphertext.as_ref()) {
-        Ok(v) => v,
-        Err(e) => {
-            println!("Decryption failed: {:?}", e);
-            return e.to_string();
-        }
-    };
-    String::from_utf8(plaintext).unwrap()
-}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -164,12 +136,14 @@ fn NotFound() -> impl IntoView {
 
 #[server(SaveSecret, "/api")]
 pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
-    //println!("Saving value {token}");
-    let key = generate_key();
+    let key = ChaCha20Poly1305::generate_key(&mut OsRng);
+    let cipher = ChaCha20Poly1305::new(&key);
+    //let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); // 96-bits; unique per message
+    let nonce = Nonce::from_slice(b"unique nonce");
     let id = Uuid::new_v4().to_string();
     let keyencoded: String = general_purpose::URL_SAFE.encode(&key);
     let keyandid = format!("{}::{}", id, keyencoded);
-    let ciphertext = encrypt(&token, &key);
+    let ciphertext = cipher.encrypt(&nonce, token.as_ref()).unwrap();
     let store = spin_sdk::key_value::Store::open_default()?;
     store
         .set_json(id, &ciphertext)
@@ -188,8 +162,11 @@ pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
         None => return Ok("not found".into()),
     };
     let key = general_purpose::URL_SAFE.decode(v[1]).unwrap();
-
-    let value = decrypt(&ciphertext, &key);
+    let cipher = ChaCha20Poly1305::new(chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key));
+    //let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); 
+    let nonce = Nonce::from_slice(b"unique nonce");
+    
+    let value = cipher.decrypt(&nonce, ciphertext.as_ref());   
     println!("{:#?}", value);
     Ok(format!("{:?}", value))
 }
