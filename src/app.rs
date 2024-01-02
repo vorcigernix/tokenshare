@@ -1,13 +1,12 @@
 use base64::{engine::general_purpose, Engine as _};
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
-    ChaCha20Poly1305, Nonce
+    ChaCha20Poly1305, Nonce,
 };
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use uuid::Uuid;
-
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -52,56 +51,57 @@ fn HomePage() -> impl IntoView {
     };
 
     view! {
-      <div class="div">
-      <div class="div-2">
-        <div class="div-3">
-          <div class="div-4">
-            <div class="column">
-              <div class="div-5">
-                <div class="div-6"></div>
-                <div class="p-6 text-4xl">Share a secret</div>
-                <div class="div-8">
-                  Type your key, token or secret below and press Generate button
-                </div>
+            <section>
+            <div class="flex min- overflow-hidden">
+                <div class="flex flex-col justify-center flex-1 px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
+                    <div class="w-full max-w-xl mx-auto lg:w-96">
+                        <div>
+                            <a class="text-blue-600 text-medium" href="/groups/login/">token.share</a>
+                            <h2 class="mt-6 text-3xl font-extrabold text-neutral-600">Share your secrets and tokens</h2>
+                        </div>
 
-                <div class="div-10">
-                    <textarea class="textarea" prop:value=token
-                    on:input=move |ev| {
-                        set_token.update(|token| *token = event_target_value(&ev));
-                    }
-                    placeholder="Type your secret here"/>
-                </div>
-                {move || if status.get() == 0 {
-                    view! {
-                        <button class="div-11" on:click=on_click>"Generate"</button>
-                    }
-                } else {
-                    view! {
-                        <button class="div-11" on:click=on_click>"Generate new"</button>
-                    }
-                }}
-                <a href=url class="div-url">
-                {move || url.get()}
-                </a>
-              </div>
-            </div>
-            <div class="column-2">
-              <img
-                loading="lazy"
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/a396a2b99a1be7361dffcb33e135ed11e8ec084d779d6c23ac65b9509bf6487a?apiKey=873a6acc1f864ebfbf772f9af3bc2381&"
-                class="img"
-              />
-            </div>
-          </div>
-        </div>
-        <div class="div-12">
-          <div class="div-13">Help</div>
-          <div class="div-14">Privacy</div>
-        </div>
-      </div>
-    </div>
+                        <div class="mt-8">
+                            <div class="mt-6">
+                                <div class="space-y-6">
+                                    <div>
+                                        <label for="token" class="block text-sm font-medium text-neutral-600"> Token or secret </label>
+                                        <div class="mt-1">
+                                            <textarea id="token" prop:value=token class="textarea" prop:value=token
+                                            on:input=move |ev| {
+                                                set_token.update(|token| *token = event_target_value(&ev));
+                                            }
+                                            placeholder="Type your secret here" class="block w-full px-5 py-3 text-base placeholder-gray-300 transition duration-500 ease-in-out transform border border-transparent rounded-lg text-neutral-600 bg-gray-50 focus:outline-none focus:border-transparent focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-300"/>
+                                        </div>
+                                    </div>
 
-      }
+                                    <div>
+                                        <button on:click=on_click class="flex items-center justify-center w-full px-10 py-4 text-base font-medium text-center text-white transition duration-500 ease-in-out transform bg-blue-600 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Generate</button>
+                                    </div>
+                                </div>
+                                <div class="relative my-4">
+                                    <div class="absolute inset-0 flex items-center">
+                                        <div class="w-full border-t border-gray-300"></div>
+                                    </div>
+                                    <div class="relative flex justify-center text-sm">
+                                        <span class="px-2 bg-white text-neutral-600">Your unique URL</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href=url class="text-blue-600 text-medium">
+                                        {move || url.get()}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative flex-1 hidden w-0 overflow-hidden lg:block">
+                    <img class="absolute inset-0 object-cover w-full h-full" src="https://images.unsplash.com/photo-1483706600674-e0c87d3fe85b?q=80&w=2407&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt=""/>
+                </div>
+            </div>
+        </section>
+
+          }
 }
 
 // Reveal token from URL
@@ -162,11 +162,13 @@ pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
         None => return Ok("not found".into()),
     };
     let key = general_purpose::URL_SAFE.decode(v[1]).unwrap();
-    let cipher = ChaCha20Poly1305::new(chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key));
-    //let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); 
+    let cipher = ChaCha20Poly1305::new(
+        chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key),
+    );
+    //let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let nonce = Nonce::from_slice(b"unique nonce");
-    
-    let value = cipher.decrypt(&nonce, ciphertext.as_ref());   
+
+    let value = cipher.decrypt(&nonce, ciphertext.as_ref());
     println!("{:#?}", value);
     Ok(format!("{:?}", value))
 }
