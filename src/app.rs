@@ -37,7 +37,6 @@ pub fn App() -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     let (token, set_token) = create_signal("".to_string());
-    let (status, set_status) = create_signal(0);
     let (url, set_url) = create_signal("".to_string());
     let on_click = move |_| {
         spawn_local(async move {
@@ -47,61 +46,60 @@ fn HomePage() -> impl IntoView {
                 *url = format!("https://tokenshare-ngosnw7s.fermyon.app/get/{}", secret_url)
             });
         });
-        set_status.update(|status| *status = 1);
     };
 
     view! {
-            <section>
-            <div class="flex min- overflow-hidden">
-                <div class="flex flex-col justify-center flex-1 px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
-                    <div class="w-full max-w-xl mx-auto lg:w-96">
-                        <div>
-                            <a class="text-blue-600 text-medium" href="/groups/login/">token.share</a>
-                            <h2 class="mt-6 text-3xl font-extrabold text-neutral-600">Share your secrets and tokens</h2>
-                        </div>
+        <section class="h-screen flex flex-col justify-center">
+        <div class="flex min- overflow-hidden">
+            <div class="flex flex-col justify-center flex-1 px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
+                <div class="w-full max-w-xl mx-auto lg:w-96">
+                    <div>
+                        <a class="text-blue-600 text-medium" href="/groups/login/">token.share</a>
+                        <h2 class="mt-6 text-3xl font-extrabold text-neutral-600">Share your secrets and tokens</h2>
+                    </div>
 
-                        <div class="mt-8">
-                            <div class="mt-6">
-                                <div class="space-y-6">
-                                    <div>
-                                        <label for="token" class="block text-sm font-medium text-neutral-600"> Token or secret </label>
-                                        <div class="mt-1">
-                                            <textarea id="token" prop:value=token class="textarea" prop:value=token
-                                            on:input=move |ev| {
-                                                set_token.update(|token| *token = event_target_value(&ev));
-                                            }
-                                            placeholder="Type your secret here" class="block w-full px-5 py-3 text-base placeholder-gray-300 transition duration-500 ease-in-out transform border border-transparent rounded-lg text-neutral-600 bg-gray-50 focus:outline-none focus:border-transparent focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-300"/>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <button on:click=on_click class="flex items-center justify-center w-full px-10 py-4 text-base font-medium text-center text-white transition duration-500 ease-in-out transform bg-blue-600 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Generate</button>
-                                    </div>
-                                </div>
-                                <div class="relative my-4">
-                                    <div class="absolute inset-0 flex items-center">
-                                        <div class="w-full border-t border-gray-300"></div>
-                                    </div>
-                                    <div class="relative flex justify-center text-sm">
-                                        <span class="px-2 bg-white text-neutral-600">Your unique URL</span>
-                                    </div>
-                                </div>
+                    <div class="mt-8">
+                        <div class="mt-6">
+                            <div class="space-y-6">
                                 <div>
-                                    <a href=url class="text-blue-600 text-medium">
-                                        {move || url.get()}
-                                    </a>
+                                    <label for="token" class="block text-sm font-medium text-neutral-600"> Token or secret </label>
+                                    <div class="mt-1">
+                                        <textarea id="token" prop:value=token class="textarea" prop:value=token
+                                        on:input=move |ev| {
+                                            set_token.update(|token| *token = event_target_value(&ev));
+                                        }
+                                        placeholder="Type your secret here" class="block w-full px-5 py-3 text-base placeholder-gray-300 transition duration-500 ease-in-out transform border border-transparent rounded-lg text-neutral-600 bg-gray-50 focus:outline-none focus:border-transparent focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-300"/>
+                                    </div>
                                 </div>
+
+                                <div>
+                                    <button on:click=on_click class="flex items-center justify-center w-full px-10 py-4 text-base font-medium text-center text-white transition duration-500 ease-in-out transform bg-blue-600 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Generate</button>
+                                </div>
+                            </div>
+                            <div class="relative my-4">
+                                <div class="absolute inset-0 flex items-center">
+                                    <div class="w-full border-t border-gray-300"></div>
+                                </div>
+                                <div class="relative flex justify-center text-sm">
+                                    <span class="px-2 bg-white text-neutral-600">Your unique URL</span>
+                                </div>
+                            </div>
+                            <div>
+                                <a href=url class="text-blue-600 text-medium break-all">
+                                    {move || url.get()}
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="relative flex-1 hidden w-0 overflow-hidden lg:block">
-                    <img class="absolute inset-0 object-cover w-full h-full" src="https://images.unsplash.com/photo-1483706600674-e0c87d3fe85b?q=80&w=2407&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt=""/>
-                </div>
             </div>
-        </section>
+            <div class="relative flex-1 hidden w-0 overflow-hidden lg:block">
+                <img class="absolute inset-0 object-cover w-full h-full" src="https://images.unsplash.com/photo-1483706600674-e0c87d3fe85b?q=80&w=2407&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt=""/>
+            </div>
+        </div>
+    </section>
 
-          }
+      }
 }
 
 // Reveal token from URL
