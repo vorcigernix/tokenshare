@@ -59,7 +59,7 @@ fn HomePage() -> impl IntoView {
             <div class="column">
               <div class="div-5">
                 <div class="div-6"></div>
-                <div class="div-7">Share a secret</div>
+                <div class="p-6 text-4xl">Share a secret</div>
                 <div class="div-8">
                   Type your key, token or secret below and press Generate button
                 </div>
