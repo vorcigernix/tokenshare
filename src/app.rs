@@ -136,15 +136,14 @@ fn NotFound() -> impl IntoView {
 pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     let key = ChaCha20Poly1305::generate_key(&mut OsRng);
     let cipher = ChaCha20Poly1305::new(&key);
-    //let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); // 96-bits; unique per message
-    let nonce = Nonce::from_slice(b"unique nonce");
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); // 96-bits; unique per message
     let id = Uuid::new_v4().to_string();
     let keyencoded: String = general_purpose::URL_SAFE.encode(&key);
     let keyandid = format!("{}::{}", id, keyencoded);
     let ciphertext = cipher.encrypt(&nonce, token.as_ref()).unwrap();
     let store = spin_sdk::key_value::Store::open_default()?;
     store
-        .set_json(id, &ciphertext)
+        .set(&id, &ciphertext)
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
 
     Ok(keyandid)
@@ -154,19 +153,17 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
 pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
     let v: Vec<&str> = id.split("::").collect();
     let store = spin_sdk::key_value::Store::open_default()?;
-    let ciphertext = store.get(v[0])?;
-    let ciphertext = match ciphertext {
-        Some(ciphertext) => ciphertext,
-        None => return Ok("not found".into()),
-    };
-    let key = general_purpose::URL_SAFE.decode(v[1]).unwrap();
-    let cipher = ChaCha20Poly1305::new(
-        chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key),
-    );
-    //let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let nonce = Nonce::from_slice(b"unique nonce");
+    if let Some(ciphertext) = store.get(v[0])? {
+        let key = general_purpose::URL_SAFE.decode(v[1]).unwrap();
+        let cipher = ChaCha20Poly1305::new(
+            chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key),
+        );
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
 
-    let value = cipher.decrypt(&nonce, ciphertext.as_ref());
-    println!("{:#?}", value);
-    Ok(format!("{:?}", value))
+        let value = cipher.decrypt(&nonce, ciphertext.as_ref());
+        println!("{:#?}", value);
+        Ok(format!("{:?}", value))
+    } else {
+        return Ok("not found".into());
+    }
 }
