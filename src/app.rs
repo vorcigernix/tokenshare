@@ -56,6 +56,7 @@ fn HomePage() -> impl IntoView {
     };
 
     view! {
+
         <section class="h-screen flex flex-col justify-center">
         <div class="flex min- overflow-hidden">
             <div class="flex flex-col justify-center flex-1 px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
@@ -105,8 +106,32 @@ fn HomePage() -> impl IntoView {
             </div>
         </div>
     </section>
+    <section>
+        <div class=" px-5 py-24 mx-auto lg:px-16">
+            <div class="flex flex-col w-full mb-8 text-center">
+                <span class="mb-4 text-sm font-medium tracking-wide text-gray-500 uppercase">
+            Yet another secret sharing service?
+            <a href="/about.html" class="font-semibold text-blue-600 lg:mb-0 hover:text-blue-500">Our difference</a>
+                </span>
+            </div>
+            <div class="mx-auto text-center">
+            <footer class="bg-white" aria-labelledby="footer-heading">
+            <h2 id="footer-heading" class="sr-only">Footer</h2>
 
-      }
+            <div class="px-4 py-12 mx-auto bg-gray-50 max-w-7xl sm:px-6 lg:px-16">
+              <div class="flex flex-wrap items-baseline lg:justify-center">
+                <span class="mt-2 text-sm font-light text-gray-500">
+                  Built on
+                  <a href="https://developer.fermyon.com/" class="mx-2 text-blue hover:text-gray-500" rel="noopener noreferrer">@Fermyon</a> and Leptos
+                </span>
+              </div>
+            </div>
+          </footer>
+
+            </div>
+        </div>
+    </section>
+    }
 }
 
 // Reveal token from URL
@@ -173,18 +198,34 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
 #[server(RevealToken, "/get")]
 pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
     let v: Vec<&str> = id.split("::").collect();
-    let store = spin_sdk::key_value::Store::open_default()?;
-    if let Some(ciphertext) = store.get(v[0])? {
-        let key = general_purpose::URL_SAFE.decode(v[1]).unwrap();
-        let cipher = ChaCha20Poly1305::new(
-            chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key),
-        );
-        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let store = spin_sdk::key_value::Store::open_default()
+        .map_err(|e| ServerFnError::ServerError(format!("Failed to open store: {}", e)))?;
 
-        let value = cipher.decrypt(&nonce, ciphertext.as_ref());
-        println!("{:#?}", value);
-        Ok(format!("{:?}", value))
-    } else {
-        return Ok("not found".into());
-    }
+    let nonce_secret = store
+        .get_json::<NoncedSecret>(v[0])
+        .map_err(|e| ServerFnError::ServerError(format!("Failed to get JSON from store: {}", e)))?;
+    println!("nonce{:#?}", nonce_secret);
+
+    let nonce_secret =
+        nonce_secret.ok_or_else(|| ServerFnError::ServerError("Secret not found".into()))?;
+
+    let key = general_purpose::URL_SAFE
+        .decode(v[1])
+        .map_err(|e| ServerFnError::ServerError(format!("Failed to decode key: {}", e)))?;
+    println!("key{:#?}", key);
+
+    let cipher = ChaCha20Poly1305::new(
+        chacha20poly1305::aead::generic_array::GenericArray::from_slice(&key),
+    );
+
+    let nonce =
+        chacha20poly1305::aead::generic_array::GenericArray::from_slice(&nonce_secret.nonce);
+
+    let ciphertext = nonce_secret.secret.as_bytes();
+
+    let value = cipher
+        .decrypt(&nonce, ciphertext)
+        .map_err(|e| ServerFnError::ServerError(format!("Decryption failed: {}", e)))?;
+
+    Ok(String::from_utf8(value).unwrap_or_else(|_| "Invalid UTF-8".to_string()))
 }
