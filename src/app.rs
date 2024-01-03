@@ -6,7 +6,14 @@ use chacha20poly1305::{
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct NoncedSecret {
+    nonce: Vec<u8>,
+    secret: String,
+}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -140,11 +147,25 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     let id = Uuid::new_v4().to_string();
     let keyencoded: String = general_purpose::URL_SAFE.encode(&key);
     let keyandid = format!("{}::{}", id, keyencoded);
-    let ciphertext = cipher.encrypt(&nonce, token.as_ref()).unwrap();
-    let store = spin_sdk::key_value::Store::open_default()?;
+
+    let ciphertext = cipher
+        .encrypt(&nonce, token.as_ref())
+        .map_err(|e| ServerFnError::ServerError(format!("Encryption failed: {}", e)))?;
+
+    let nonce_secret: NoncedSecret = NoncedSecret {
+        nonce: nonce.to_vec(),
+        secret: format!("{:?}", ciphertext),
+    };
+
+    let store = spin_sdk::key_value::Store::open_default()
+        .map_err(|e| ServerFnError::ServerError(format!("Failed to open store: {}", e)))?;
+
     store
-        .set(&id, &ciphertext)
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+        .set_json(&id, &nonce_secret)
+        .map_err(|e| ServerFnError::ServerError(format!("Failed to set JSON in store: {}", e)))?;
+
+    println!("nonced{:#?}", nonce_secret);
+    println!("key{:#?}", key);
 
     Ok(keyandid)
 }
