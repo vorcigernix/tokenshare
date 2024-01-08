@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 struct NoncedSecret {
     nonce: Vec<u8>,
-    secret: String,
+    secret: Vec<u8>,
 }
 
 #[component]
@@ -179,7 +179,7 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
 
     let nonce_secret: NoncedSecret = NoncedSecret {
         nonce: nonce.to_vec(),
-        secret: format!("{:?}", ciphertext),
+        secret: ciphertext,
     };
 
     let store = spin_sdk::key_value::Store::open_default()
@@ -221,10 +221,10 @@ pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
     let nonce =
         chacha20poly1305::aead::generic_array::GenericArray::from_slice(&nonce_secret.nonce);
 
-    let ciphertext = nonce_secret.secret.as_bytes();
+    let ciphertext = nonce_secret.secret;
 
     let value = cipher
-        .decrypt(&nonce, ciphertext)
+        .decrypt(&nonce, ciphertext.as_ref())
         .map_err(|e| ServerFnError::ServerError(format!("Decryption failed: {}", e)))?;
 
     Ok(String::from_utf8(value).unwrap_or_else(|_| "Invalid UTF-8".to_string()))
