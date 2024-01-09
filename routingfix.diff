@@ -1,0 +1,42 @@
+diff --git a/src/app.rs b/src/app.rs
+index 62997cc..8652aaa 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -209,7 +209,7 @@ fn NotFound() -> impl IntoView {
+     }
+ }
+
+-#[server(SaveSecret, "/set")]
++#[server(SaveSecret, "/api")]
+ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
+     let key = ChaCha20Poly1305::generate_key(&mut OsRng);
+     let cipher = ChaCha20Poly1305::new(&key);
+@@ -240,7 +240,7 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
+     Ok(keyandid)
+ }
+
+-#[server(RevealSecret, "/get")]
++#[server(GetSecret, "/api")]
+ pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
+     let v: Vec<&str> = id.split("::").collect();
+     let store = spin_sdk::key_value::Store::open_default()
+diff --git a/src/server.rs b/src/server.rs
+index cbde2f9..0d6bd2d 100644
+--- a/src/server.rs
++++ b/src/server.rs
+@@ -9,13 +9,12 @@ async fn handle_tokenshare(req: IncomingRequest, resp_out: ResponseOutparam) {
+     conf.leptos_options.output_name = "tokenshare".to_owned();
+
+     crate::app::SaveSecret::register_explicit().unwrap();
+-    crate::app::RevealSecret::register_explicit().unwrap();
++    crate::app::GetSecret::register_explicit().unwrap();
+
+     let app_fn = crate::app::App;
+
+     let mut routes = RouteTable::build(app_fn);
+-    routes.add_server_fn_prefix("/set").unwrap();
+-    routes.add_server_fn_prefix("/get").unwrap();
++    routes.add_server_fn_prefix("/api").unwrap();
+
+     render_best_match_to_stream(req, resp_out, &routes, app_fn, &conf.leptos_options).await
+ }
