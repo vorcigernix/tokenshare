@@ -210,7 +210,7 @@ fn NotFound() -> impl IntoView {
     }
 }
 
-#[server(SaveSecret, "/set")]
+#[server(SaveSecret, "/api")]
 pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     let key = ChaCha20Poly1305::generate_key(&mut OsRng);
     let cipher = ChaCha20Poly1305::new(&key);
@@ -241,9 +241,9 @@ pub async fn save_secret(token: String) -> Result<String, ServerFnError> {
     Ok(keyandid)
 }
 
-#[server(RevealSecret, "/get")]
+#[server(GetSecret, "/api")]
 pub async fn get_secret(id: String) -> Result<String, ServerFnError> {
-    println!("id{:#?}", id);
+    //println!("id{:#?}", id);
     let v: Vec<&str> = id.split("::").collect();
     let store = spin_sdk::key_value::Store::open_default()
         .map_err(|e| ServerFnError::ServerError(format!("Failed to open store: {}", e)))?;

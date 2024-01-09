@@ -9,13 +9,12 @@ async fn handle_tokenshare(req: IncomingRequest, resp_out: ResponseOutparam) {
     conf.leptos_options.output_name = "tokenshare".to_owned();
 
     crate::app::SaveSecret::register_explicit().unwrap();
-    crate::app::RevealSecret::register_explicit().unwrap();
+    crate::app::GetSecret::register_explicit().unwrap();
 
     let app_fn = crate::app::App;
 
     let mut routes = RouteTable::build(app_fn);
-    routes.add_server_fn_prefix("/set").unwrap();
-    routes.add_server_fn_prefix("/get").unwrap();
+    routes.add_server_fn_prefix("/api").unwrap();
 
     render_best_match_to_stream(req, resp_out, &routes, app_fn, &conf.leptos_options).await
 }
