@@ -47,11 +47,11 @@ fn HomePage() -> impl IntoView {
     let on_click = move |_event: MouseEvent| {
         spawn_local(async move {
             let secret_url = save_secret(token.get().to_string()).await.unwrap();
-            //todo: use host from request
             set_url.update(|url| {
-                *url = format!("https://tokenshare-ngosnw7s.fermyon.app/get/{}", secret_url)
+                *url = format!("/get/{}", secret_url)
             });
         });
+
     };
     view! {
 
