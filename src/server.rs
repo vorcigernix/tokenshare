@@ -1,15 +1,15 @@
 use leptos::ServerFn;
-use spin_sdk::http::{ResponseOutparam, IncomingRequest};
-use spin_sdk::http_component;
 use leptos_spin::{render_best_match_to_stream, RouteTable};
+use spin_sdk::http::{IncomingRequest, ResponseOutparam};
+use spin_sdk::http_component;
 
 #[http_component]
 async fn handle_tokenshare(req: IncomingRequest, resp_out: ResponseOutparam) {
     let mut conf = leptos::get_configuration(None).await.unwrap();
     conf.leptos_options.output_name = "tokenshare".to_owned();
 
-    crate::app::SaveSecret::register_explicit().unwrap();
-    crate::app::GetSecret::register_explicit().unwrap();
+    crate::app::savesecret::SaveSecret::register_explicit().unwrap();
+    crate::app::getsecret::GetSecret::register_explicit().unwrap();
 
     let app_fn = crate::app::App;
 
